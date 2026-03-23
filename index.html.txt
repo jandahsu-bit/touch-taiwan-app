@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rigidline | Touch Taiwan 2026 來客系統</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        :root {
+            --primary-color: #007bff; /* 科技藍 */
+            --bg-color: #1a1a1a;    /* 深灰背景 */
+            --card-bg: #2d2d2d;     /* 卡片背景 */
+            --text-color: #e0e0e0;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            background: var(--card-bg);
+            padding: 25px;
+            border-radius: 12px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            border-top: 4px solid var(--primary-color);
+        }
+
+        h2 {
+            text-align: center;
+            color: var(--primary-color);
+            margin-bottom: 25px;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+        }
+
+        #reader {
+            width: 100%;
+            border-radius: 8px;
+            overflow: hidden;
+            margin-bottom: 20px;
+            border: 1px solid #444;
+        }
+
+        .form-group {
+            margin-bottom: 15px;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: #aaa;
+        }
+
+        input[type="text"], textarea, input[type="file"] {
+            width: 100%;
+            padding: 12px;
+            background: #1a1a1a;
+            border: 1px solid #444;
+            border-radius: 6px;
+            color: white;
+            font-size: 16px;
+            box-sizing: border-box;
+        }
+
+        button {
+            background: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 15px;
+            width: 100%;
+            border-radius: 6px;
+            font-size: 18px;
+            font-weight: bold;
+            cursor: pointer;
+            margin-top: 10px;
+        }
+
+        .status-msg {
+            text-align: center;
+            margin-top: 15px;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>Rigidline 來客紀錄</h2>
+        
+        <div id="reader"></div>
+
+        <div class="form-group">
+            <label>入場碼 (ID)</label>
+            <input type="text" id="scan-id" placeholder="掃描後自動帶入" readonly>
+        </div>
+
+        <div class="form-group">
+            <label>客戶姓名 / 公司</label>
+            <input type="text" id="cust-info" placeholder="手動補充基本資訊">
+        </div>
+
+        <div class="form-group">
+            <label>上傳/拍攝名片</label>
+            <input type="file" id="business-card" accept="image/*" capture="camera">
+        </div>
+
+        <div class="form-group">
+            <label>洽談備註</label>
+            <textarea id="notes" rows="3" placeholder="紀錄客戶需求..."></textarea>
+        </div>
+
+        <button onclick="uploadData()" id="submit-btn">儲存並上傳</button>
+        <div id="status" class="status-msg"></div>
+    </div>
+
+    <script>
+        const html5QrCode = new Html5Qrcode("reader");
+        const qrConfig = { fps: 10, qrbox: { width: 250, height: 250 } };
+
+        html5QrCode.start(
+            { facingMode: "environment" }, 
+            qrConfig,
+            (decodedText) => {
+                document.getElementById('scan-id').value = decodedText;
+                navigator.vibrate(50);
+            }
+        ).catch(err => console.error("相機啟動失敗", err));
+
+        async function uploadData() {
+            const btn = document.getElementById('submit-btn');
+            const status = document.getElementById('status');
+            
+            // 重要：請將下方的網址替換成您剛才部署得到的 Google Apps Script URL
+            const scriptUrl = 'https://script.google.com/macros/s/AKfycbyEMr0PyC_sr1tmJUYBfqyadDnsmxv62LR4OLerm8o1jZuSlZI8FT3nvxLJg-cYCNJCJw/exec'; 
+
+            const payload = {
+                id: document.getElementById('scan-id').value,
+                info: document.getElementById('cust-info').value,
+                notes: document.getElementById('notes').value,
+                time: new Date().toLocaleString()
+            };
+
+            if (!payload.id && !payload.info) {
+                alert("請至少掃碼或輸入客戶資訊");
+                return;
+            }
+
+            btn.disabled = true;
+            status.innerText = "上傳中...";
+
+            try {
+                const response = await fetch(scriptUrl, {
+                    method: 'POST',
+                    mode: 'no-cors',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                status.style.color = "#4caf50";
+                status.innerText = "儲存成功！已更新至雲端試算表。";
+                
+                document.getElementById('scan-id').value = "";
+                document.getElementById('cust-info').value = "";
+                document.getElementById('notes').value = "";
+                document.getElementById('business-card').value = "";
+
+            } catch (error) {
+                status.style.color = "#ff5252";
+                status.innerText = "上傳失敗，請檢查網路。";
+            } finally {
+                btn.disabled = false;
+            }
+        }
+    </script>
+</body>
+</html>
